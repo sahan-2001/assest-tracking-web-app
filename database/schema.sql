@@ -7,3 +7,9 @@ CREATE TABLE assets (
 );
 
 CREATE INDEX idx_assets_geom ON assets USING GIST (geom);
+
+-- Check PostGIS is enabled
+SELECT PostGIS_version();
+
+-- Check table exists with data
+SELECT id, name, ST_AsText(geom) FROM assets;

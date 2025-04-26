@@ -2,33 +2,70 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>WebGIS Asset Tracker</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@7.3.0/ol.css">
+    <title>Asset Tracker</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v10.5.0/ol.css">
     <style>
-        body, html {
-            margin: 0;
-            padding: 0;
-            height: 100%;
+        body, html { 
+            margin: 0; 
+            padding: 0; 
             width: 100%;
+            height: 100%;
+            font-family: Arial;
         }
-        h1 {
-            text-align: center;
-            margin: 10px;
-            font-family: Arial, sans-serif;
+        #map-container {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 100%;
         }
         #map {
             width: 100%;
-            height: 90vh;
+            height: 100%;
+        }
+        #debug {
+            position: fixed;
+            bottom: 0;
+            background: white;
+            width: 100%;
+            height: 100px;
+            overflow: auto;
+            z-index: 1000;
+            font-family: monospace;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+        .map-title {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 1000;
+            background: rgba(255,255,255,0.8);
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 1.5em;
         }
     </style>
 </head>
 <body>
-    <h1>🛰️ Asset Tracking Map</h1>
-    <div id="map"></div>
+    <div class="map-title">🛰️ Asset Tracking Map</div>
+    <div id="map-container">
+        <div id="map"></div>
+    </div>
+    <div id="debug"></div>
 
-    <script src="https://cdn.jsdelivr.net/npm/ol@7.3.0/ol.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/ol@v10.5.0/dist/ol.js"></script>
     <script>
-        // Initialize the map
+        const debug = document.getElementById('debug');
+        
+        // 1. Verify OpenLayers loaded
+        if (typeof ol === 'undefined') {
+            debug.innerHTML += "ERROR: OpenLayers failed to load<br>";
+            throw new Error("OpenLayers not loaded");
+        } else {
+            debug.innerHTML += "1. OpenLayers loaded successfully<br>";
+        }
+
+        // 2. Initialize Map
         const map = new ol.Map({
             target: 'map',
             layers: [
@@ -38,48 +75,68 @@
             ],
             view: new ol.View({
                 center: ol.proj.fromLonLat([79.88, 6.90]),
-                zoom: 10
+                zoom: 12
             })
         });
-
-        // Create a vector layer for assets
+        
+        debug.innerHTML += "2. Map initialized<br>";
+        
+        // Create vector layer for assets
         const vectorSource = new ol.source.Vector();
         const vectorLayer = new ol.layer.Vector({
             source: vectorSource,
             style: new ol.style.Style({
                 image: new ol.style.Circle({
                     radius: 7,
-                    fill: new ol.style.Fill({ color: 'red' }),
-                    stroke: new ol.style.Stroke({ color: '#fff', width: 2 })
+                    fill: new ol.style.Fill({color: 'red'}),
+                    stroke: new ol.style.Stroke({color: 'white', width: 2})
                 })
             })
         });
         map.addLayer(vectorLayer);
-
-        // Function to load and update assets
-        function updateAssets() {
+        
+        // 3. Load assets function
+        function loadAssets() {
+            debug.innerHTML += "3. Fetching assets...<br>";
+            
             fetch('/api/assets')
                 .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Network response was not ok');
-                    }
+                    debug.innerHTML += `4. API status: ${response.status}<br>`;
+                    if (!response.ok) throw new Error(`API error: ${response.status}`);
                     return response.json();
                 })
                 .then(data => {
+                    if (data.error) throw new Error(data.error);
+                    
+                    debug.innerHTML += `5. Received ${data.features?.length || 0} features<br>`;
+                    
                     const features = new ol.format.GeoJSON().readFeatures(data, {
                         featureProjection: 'EPSG:3857'
                     });
+                    
                     vectorSource.clear();
                     vectorSource.addFeatures(features);
+                    
+                    if (features.length > 0) {
+                        map.getView().fit(vectorSource.getExtent(), {
+                            padding: [50, 50, 50, 50],
+                            maxZoom: 15
+                        });
+                    }
+                    
+                    debug.innerHTML += "6. Map updated with assets<br>";
                 })
-                .catch(error => {
-                    console.error('Error loading assets:', error);
+                .catch(err => {
+                    debug.innerHTML += `ERROR: ${err.message}<br>`;
+                    console.error(err);
                 });
         }
 
-        // Load assets immediately and then every 10 seconds
-        updateAssets();
-        setInterval(updateAssets, 10000);
+        // Initial load
+        loadAssets();
+        
+        // Refresh every 10 seconds
+        setInterval(loadAssets, 10000);
     </script>
 </body>
 </html>
