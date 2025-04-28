@@ -3,140 +3,375 @@
 <head>
     <meta charset="UTF-8">
     <title>Asset Tracker</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v10.5.0/ol.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v7.3.0/ol.css">
     <style>
-        body, html { 
-            margin: 0; 
-            padding: 0; 
-            width: 100%;
-            height: 100%;
-            font-family: Arial;
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; font-family: Arial; }
+        #map-container { position: absolute; top: 0; bottom: 0; width: 100%; }
+        #map { width: 100%; height: 100%; }
+        #sidebar {
+            position: absolute; top: 10px; left: 10px; z-index: 1000;
+            background: rgba(255,255,255,0.9); padding: 15px; border-radius: 5px; width: 300px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.2);
         }
-        #map-container {
-            position: absolute;
-            top: 0;
-            bottom: 0;
-            width: 100%;
-        }
-        #map {
-            width: 100%;
-            height: 100%;
-        }
-        #debug {
-            position: fixed;
-            bottom: 0;
-            background: white;
-            width: 100%;
-            height: 100px;
-            overflow: auto;
-            z-index: 1000;
-            font-family: monospace;
-            padding: 10px;
-            box-sizing: border-box;
+        #sidebar h4 { margin-bottom: 5px; }
+        #sidebar button { margin-top: 10px; padding: 8px; width: 100%; cursor: pointer; }
+        .coordinates {
+            font-family: monospace; font-size: 0.9em; margin: 5px 0;
+            padding: 5px; background: #f5f5f5; border-radius: 3px;
         }
         .map-title {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            z-index: 1000;
-            background: rgba(255,255,255,0.8);
-            padding: 10px;
-            border-radius: 5px;
-            font-size: 1.5em;
+            position: absolute; top: 10px; left: 330px; z-index: 1000;
+            background: rgba(255,255,255,0.9); padding: 10px 15px; border-radius: 5px;
+            font-size: 1.2em; box-shadow: 0 0 10px rgba(0,0,0,0.2);
+        }
+        #asset-info-container {
+            position: absolute; bottom: 10px; left: 10px; z-index: 1000;
+            background: rgba(255,255,255,0.9); padding: 10px; border-radius: 5px;
+            max-height: 200px; overflow-y: auto; width: 300px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.2);
+        }
+        .asset-widget {
+            border: 1px solid #ccc;
+            padding: 8px;
+            margin-bottom: 5px;
+            border-radius: 3px;
+            font-size: 0.9em;
+        }
+        .asset-widget strong {
+            font-size: 1.1em;
         }
     </style>
 </head>
 <body>
     <div class="map-title">🛰️ Asset Tracking Map</div>
+
+    <div id="sidebar">
+        <h4>From Location (Blue)</h4>
+        <div id="from-coords" class="coordinates">Not selected</div>
+        <button id="select-from">Select From Location</button>
+
+        <h4>To Location (Green)</h4>
+        <div id="to-coords" class="coordinates">Not selected</div>
+        <button id="select-to">Select To Location</button>
+
+        <button id="search-assets">Find Nearest Assets</button>
+        <button id="clear-all">Clear All</button>
+        <div id="search-status" style="margin-top: 10px; font-style: italic;"></div>
+    </div>
+
     <div id="map-container">
         <div id="map"></div>
     </div>
-    <div id="debug"></div>
 
-    <script src="https://cdn.jsdelivr.net/npm/ol@v10.5.0/dist/ol.js"></script>
+    <div id="asset-info-container">
+        <h4>Nearby Assets</h4>
+        <div id="assets-list"></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/ol@v7.3.0/dist/ol.js"></script>
     <script>
-        const debug = document.getElementById('debug');
-        
-        // 1. Verify OpenLayers loaded
-        if (typeof ol === 'undefined') {
-            debug.innerHTML += "ERROR: OpenLayers failed to load<br>";
-            throw new Error("OpenLayers not loaded");
-        } else {
-            debug.innerHTML += "1. OpenLayers loaded successfully<br>";
-        }
+        let fromLocation = null;
+        let toLocation = null;
+        let fromMarker = null;
+        let toMarker = null;
+        let routeLayer = null;
+        let assetLayer = null;
+        let searchCircleLayer = null;
+        let blinkInterval = null;
+        let allAssetFeatures = []; // store all assets here
 
-        // 2. Initialize Map
         const map = new ol.Map({
             target: 'map',
             layers: [
-                new ol.layer.Tile({
-                    source: new ol.source.OSM()
-                })
+                new ol.layer.Tile({ source: new ol.source.OSM() })
             ],
             view: new ol.View({
                 center: ol.proj.fromLonLat([79.88, 6.90]),
                 zoom: 12
             })
         });
-        
-        debug.innerHTML += "2. Map initialized<br>";
-        
-        // Create vector layer for assets
-        const vectorSource = new ol.source.Vector();
-        const vectorLayer = new ol.layer.Vector({
-            source: vectorSource,
-            style: new ol.style.Style({
-                image: new ol.style.Circle({
-                    radius: 7,
-                    fill: new ol.style.Fill({color: 'red'}),
-                    stroke: new ol.style.Stroke({color: 'white', width: 2})
-                })
-            })
+
+        const assetSource = new ol.source.Vector();
+        assetLayer = new ol.layer.Vector({
+            source: assetSource,
+            style: function(feature) {
+                const assetType = feature.get('asset_type') || 'unknown';
+                let color = 'red';
+                if (assetType.includes('vehicle')) color = 'blue';
+                if (assetType.includes('person')) color = 'green';
+                if (assetType.includes('equipment')) color = 'purple';
+                return new ol.style.Style({
+                    image: new ol.style.Circle({
+                        radius: 7,
+                        fill: new ol.style.Fill({color}),
+                        stroke: new ol.style.Stroke({color: 'white', width: 2})
+                    }),
+                    text: new ol.style.Text({
+                        text: feature.get('name') || '',
+                        offsetY: -15,
+                        font: '12px Arial',
+                        fill: new ol.style.Fill({color: '#000'}),
+                        stroke: new ol.style.Stroke({color: '#fff', width: 3})
+                    })
+                });
+            }
         });
-        map.addLayer(vectorLayer);
-        
-        // 3. Load assets function
-        function loadAssets() {
-            debug.innerHTML += "3. Fetching assets...<br>";
-            
-            fetch('/api/assets')
+        map.addLayer(assetLayer);
+
+        function loadAllAssets() {
+            fetch('/api/assets/all')
                 .then(response => {
-                    debug.innerHTML += `4. API status: ${response.status}<br>`;
-                    if (!response.ok) throw new Error(`API error: ${response.status}`);
+                    if (!response.ok) throw new Error('Failed to fetch assets.');
                     return response.json();
                 })
                 .then(data => {
-                    if (data.error) throw new Error(data.error);
-                    
-                    debug.innerHTML += `5. Received ${data.features?.length || 0} features<br>`;
-                    
-                    const features = new ol.format.GeoJSON().readFeatures(data, {
-                        featureProjection: 'EPSG:3857'
-                    });
-                    
-                    vectorSource.clear();
-                    vectorSource.addFeatures(features);
-                    
-                    if (features.length > 0) {
-                        map.getView().fit(vectorSource.getExtent(), {
-                            padding: [50, 50, 50, 50],
-                            maxZoom: 15
+                    data.assets.forEach(asset => {
+                        const coords = ol.proj.fromLonLat(asset.geometry.coordinates);
+                        const feature = new ol.Feature({
+                            geometry: new ol.geom.Point(coords),
+                            name: asset.properties.name,
+                            asset_type: asset.properties.asset_type,
+                            last_seen: asset.properties.last_seen,
+                            id: asset.properties.id, // Assuming your API returns an 'id' for each asset
+                            coordinates: asset.geometry.coordinates
                         });
-                    }
-                    
-                    debug.innerHTML += "6. Map updated with assets<br>";
+                        assetSource.addFeature(feature);
+                        allAssetFeatures.push(feature);
+                    });
                 })
-                .catch(err => {
-                    debug.innerHTML += `ERROR: ${err.message}<br>`;
-                    console.error(err);
+                .catch(error => {
+                    console.error('Error loading assets:', error);
                 });
         }
 
-        // Initial load
-        loadAssets();
-        
-        // Refresh every 10 seconds
-        setInterval(loadAssets, 10000);
+        function addMarker(lon, lat, color, id) {
+            const marker = new ol.Feature({
+                geometry: new ol.geom.Point(ol.proj.fromLonLat([lon, lat]))
+            });
+            marker.setId(id);
+            marker.setStyle(new ol.style.Style({
+                image: new ol.style.Circle({
+                    radius: 10,
+                    fill: new ol.style.Fill({color}),
+                    stroke: new ol.style.Stroke({color: 'white', width: 2})
+                })
+            }));
+            return marker;
+        }
+
+        function updateCoordinatesDisplay() {
+            const fromCoords = document.getElementById('from-coords');
+            const toCoords = document.getElementById('to-coords');
+            fromCoords.textContent = fromLocation ? `Lat: ${fromLocation[0].toFixed(6)}, Lon: ${fromLocation[1].toFixed(6)}` : 'Not selected';
+            toCoords.textContent = toLocation ? `Lat: ${toLocation[0].toFixed(6)}, Lon: ${toLocation[1].toFixed(6)}` : 'Not selected';
+        }
+
+        let selectingFrom = false, selectingTo = false;
+        document.getElementById('select-from').addEventListener('click', function() {
+            selectingFrom = true;
+            selectingTo = false;
+            this.textContent = 'Selecting... (Click map)';
+        });
+        document.getElementById('select-to').addEventListener('click', function() {
+            selectingTo = true;
+            selectingFrom = false;
+            this.textContent = 'Selecting... (Click map)';
+        });
+
+        map.on('click', function(evt) {
+            const coordinates = ol.proj.toLonLat(evt.coordinate);
+            if (selectingFrom) {
+                if (fromMarker) assetSource.removeFeature(fromMarker);
+                fromLocation = [coordinates[1], coordinates[0]];
+                fromMarker = addMarker(coordinates[0], coordinates[1], 'blue', 'from-marker');
+                assetSource.addFeature(fromMarker);
+                selectingFrom = false;
+                document.getElementById('select-from').textContent = 'Select From Location';
+                updateCoordinatesDisplay();
+            } else if (selectingTo) {
+                if (toMarker) assetSource.removeFeature(toMarker);
+                toLocation = [coordinates[1], coordinates[0]];
+                toMarker = addMarker(coordinates[0], coordinates[1], 'green', 'to-marker');
+                assetSource.addFeature(toMarker);
+                selectingTo = false;
+                document.getElementById('select-to').textContent = 'Select To Location';
+                updateCoordinatesDisplay();
+            }
+        });
+
+        function drawRoute(from, to) {
+            if (routeLayer) map.removeLayer(routeLayer);
+            const route = new ol.layer.Vector({
+                source: new ol.source.Vector({
+                    features: [
+                        new ol.Feature({
+                            geometry: new ol.geom.LineString([
+                                ol.proj.fromLonLat([from[1], from[0]]),
+                                ol.proj.fromLonLat([to[1], to[0]])
+                            ])
+                        })
+                    ]
+                }),
+                style: new ol.style.Style({
+                    stroke: new ol.style.Stroke({
+                        color: '#0066ff', width: 4, lineDash: [5,5]
+                    })
+                })
+            });
+            map.addLayer(route);
+            routeLayer = route;
+        }
+
+        function drawSearchCircle(lon, lat, radiusMeters) {
+            if (searchCircleLayer) map.removeLayer(searchCircleLayer);
+            const circleFeature = new ol.Feature(new ol.geom.Circle(ol.proj.fromLonLat([lon, lat]), radiusMeters));
+            const circleSource = new ol.source.Vector({features: [circleFeature]});
+            searchCircleLayer = new ol.layer.Vector({
+                source: circleSource,
+                style: new ol.style.Style({
+                    stroke: new ol.style.Stroke({color: 'rgba(255,0,0,0.8)', width: 2}),
+                    fill: new ol.style.Fill({color: 'rgba(255,0,0,0.2)'})
+                })
+            });
+            let visible = true;
+            if (blinkInterval) clearInterval(blinkInterval);
+            blinkInterval = setInterval(() => {
+                searchCircleLayer.setVisible(visible);
+                visible = !visible;
+            }, 500);
+            map.addLayer(searchCircleLayer);
+        }
+
+        function stopBlinking() {
+            if (blinkInterval) {
+                clearInterval(blinkInterval);
+                blinkInterval = null;
+            }
+            if (searchCircleLayer) searchCircleLayer.setVisible(true);
+        }
+
+        function calculateDistance(coord1, coord2) {
+            const R = 6371e3; // metres
+            const lat1 = coord1[0] * Math.PI / 180; // φ, λ in radians
+            const lat2 = coord2[0] * Math.PI / 180;
+            const lon1 = coord1[1] * Math.PI / 180;
+            const lon2 = coord2[1] * Math.PI / 180;
+
+            const deltaLat = lat2 - lat1;
+            const deltaLon = lon2 - lon1;
+
+            const a = Math.sin(deltaLat/2) * Math.sin(deltaLat/2) +
+                      Math.cos(lat1) * Math.cos(lat2) *
+                      Math.sin(deltaLon/2) * Math.sin(deltaLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+            return R * c; // in metres
+        }
+
+        function displayNearestAssets(nearestAssets) {
+            const assetsList = document.getElementById('assets-list');
+            assetsList.innerHTML = '';
+            const displayedAssetIds = new Set();
+
+            if (nearestAssets.length === 0) {
+                assetsList.innerHTML = '<p>No assets found in this area</p>';
+                return;
+            }
+
+            nearestAssets.forEach(asset => {
+                const assetId = asset.feature.get('id');
+                if (!displayedAssetIds.has(assetId)) {
+                    displayedAssetIds.add(assetId);
+                    const div = document.createElement('div');
+                    div.className = 'asset-widget';
+                    const assetCoords = asset.feature.get('coordinates');
+                    div.innerHTML = `
+                        <strong>${asset.feature.get('name')}</strong><br>
+                        Coordinates: ${assetCoords[1].toFixed(6)}, ${assetCoords[0].toFixed(6)}<br>
+                        Distance: ${Math.round(asset.distance)}m
+                    `;
+                    assetsList.appendChild(div);
+                }
+            });
+        }
+
+        document.getElementById('search-assets').addEventListener('click', function() {
+            if (!fromLocation) {
+                alert('Please select a FROM location first.');
+                return;
+            }
+            if (fromMarker) assetSource.addFeature(fromMarker);
+            if (toMarker) assetSource.addFeature(toMarker);
+            if (toLocation) drawRoute(fromLocation, toLocation);
+            let searchRadius = 500;
+            const maxRadius = 5000;
+            const step = 500;
+            let nearestFound = false;
+
+            function searchNextRadius() {
+                if (nearestFound) {
+                    stopBlinking();
+                    return;
+                }
+                if (searchRadius > maxRadius) {
+                    document.getElementById('search-status').textContent = 'No assets found within 5km radius.';
+                    stopBlinking();
+                    return;
+                }
+                document.getElementById('search-status').textContent = `Searching within ${searchRadius}m radius...`;
+                drawSearchCircle(fromLocation[1], fromLocation[0], searchRadius);
+
+                const nearbyAssets = [];
+                allAssetFeatures.forEach(feature => {
+                    const assetCoords = ol.proj.toLonLat(feature.getGeometry().getCoordinates());
+                    const distance = calculateDistance(fromLocation, [assetCoords[1], assetCoords[0]]);
+                    if (distance <= searchRadius) {
+                        nearbyAssets.push({ feature: feature, distance: distance });
+                    }
+                });
+
+                if (nearbyAssets.length > 0) {
+                    nearestFound = true;
+                    stopBlinking();
+                    nearbyAssets.sort((a, b) => a.distance - b.distance);
+                    displayNearestAssets(nearbyAssets);
+                    const nearestDistance = Math.round(nearbyAssets[0].distance);
+                    if (nearestDistance >= 500 && nearestDistance <= 1000) {
+                        document.getElementById('search-status').textContent = `Nearest item found within 500-1000m range (${nearestDistance}m).`;
+                    } else if (nearestDistance < 500 && nearestDistance > 100) {
+                        document.getElementById('search-status').textContent = `Nearest item found within 100-${nearestDistance}m range (${nearestDistance}m).`;
+                    } else if (nearestDistance <= 100 && nearestDistance >= 0) {
+                        document.getElementById('search-status').textContent = `Nearest item found within ${nearestDistance}m.`;
+                    } else {
+                        document.getElementById('search-status').textContent = `Nearest item found within ${nearestDistance}m.`;
+                    }
+                } else {
+                    searchRadius += step;
+                    setTimeout(searchNextRadius, 1000);
+                }
+            }
+
+            searchNextRadius();
+        });
+
+        document.getElementById('clear-all').addEventListener('click', function() {
+            assetSource.clear();
+            allAssetFeatures = [];
+            fromLocation = null;
+            toLocation = null;
+            fromMarker = null;
+            toMarker = null;
+            document.getElementById('assets-list').innerHTML = '';
+            document.getElementById('from-coords').textContent = 'Not selected';
+            document.getElementById('to-coords').textContent = 'Not selected';
+            document.getElementById('search-status').textContent = '';
+            if (routeLayer) map.removeLayer(routeLayer);
+            if (searchCircleLayer) map.removeLayer(searchCircleLayer);
+            stopBlinking();
+            loadAllAssets(); // Reload assets after clear
+        });
+
+        loadAllAssets(); // <<< important: load all assets at start
     </script>
 </body>
 </html>
