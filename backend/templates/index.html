@@ -119,30 +119,36 @@
         map.addLayer(assetLayer);
 
         function loadAllAssets() {
-            fetch('/api/assets/all')
-                .then(response => {
-                    if (!response.ok) throw new Error('Failed to fetch assets.');
-                    return response.json();
-                })
-                .then(data => {
-                    data.assets.forEach(asset => {
-                        const coords = ol.proj.fromLonLat(asset.geometry.coordinates);
-                        const feature = new ol.Feature({
-                            geometry: new ol.geom.Point(coords),
-                            name: asset.properties.name,
-                            asset_type: asset.properties.asset_type,
-                            last_seen: asset.properties.last_seen,
-                            id: asset.properties.id, // Assuming your API returns an 'id' for each asset
-                            coordinates: asset.geometry.coordinates
-                        });
-                        assetSource.addFeature(feature);
-                        allAssetFeatures.push(feature);
+        fetch('/api/assets/all')
+            .then(response => {
+                if (!response.ok) throw new Error('Failed to fetch assets.');
+                return response.json();
+            })
+            .then(data => {
+                const addedAssetIds = new Set(); // prevent duplicates
+                data.assets.forEach(asset => {
+                    const assetId = asset.properties.id;
+                    if (addedAssetIds.has(assetId)) return; // skip duplicates
+                    addedAssetIds.add(assetId);
+
+                    const coords = ol.proj.fromLonLat(asset.geometry.coordinates);
+                    const feature = new ol.Feature({
+                        geometry: new ol.geom.Point(coords),
+                        name: asset.properties.name,
+                        asset_type: asset.properties.asset_type,
+                        last_seen: asset.properties.last_seen,
+                        id: assetId,
+                        coordinates: asset.geometry.coordinates
                     });
-                })
-                .catch(error => {
-                    console.error('Error loading assets:', error);
+                    assetSource.addFeature(feature);
+                    allAssetFeatures.push(feature);
                 });
-        }
+            })
+            .catch(error => {
+                console.error('Error loading assets:', error);
+            });
+    }
+
 
         function addMarker(lon, lat, color, id) {
             const marker = new ol.Feature({
@@ -296,63 +302,78 @@
         }
 
         document.getElementById('search-assets').addEventListener('click', function() {
-            if (!fromLocation) {
-                alert('Please select a FROM location first.');
+    if (!fromLocation) {
+        alert('Please select a FROM location first.');
+        return;
+    }
+    
+    // Clear previous results but keep the assets
+    document.getElementById('assets-list').innerHTML = '';
+    document.getElementById('search-status').textContent = '';
+    
+    if (fromMarker) assetSource.addFeature(fromMarker);
+    if (toMarker) assetSource.addFeature(toMarker);
+    if (toLocation) drawRoute(fromLocation, toLocation);
+    
+    let searchRadius = 500;
+    const maxRadius = 5000;
+    const step = 500;
+    let nearestFound = false;
+    const alreadyDisplayedAssets = new Set(); // Track displayed assets
+
+    function searchNextRadius() {
+        if (nearestFound) {
+            stopBlinking();
+            return;
+        }
+        if (searchRadius > maxRadius) {
+            document.getElementById('search-status').textContent = 'No assets found within 5km radius.';
+            stopBlinking();
+            return;
+        }
+        
+        document.getElementById('search-status').textContent = `Searching within ${searchRadius}m radius...`;
+        drawSearchCircle(fromLocation[1], fromLocation[0], searchRadius);
+
+        const nearbyAssets = [];
+        allAssetFeatures.forEach(feature => {
+            // Skip if already displayed
+            if (alreadyDisplayedAssets.has(feature.get('id'))) {
                 return;
             }
-            if (fromMarker) assetSource.addFeature(fromMarker);
-            if (toMarker) assetSource.addFeature(toMarker);
-            if (toLocation) drawRoute(fromLocation, toLocation);
-            let searchRadius = 500;
-            const maxRadius = 5000;
-            const step = 500;
-            let nearestFound = false;
-
-            function searchNextRadius() {
-                if (nearestFound) {
-                    stopBlinking();
-                    return;
-                }
-                if (searchRadius > maxRadius) {
-                    document.getElementById('search-status').textContent = 'No assets found within 5km radius.';
-                    stopBlinking();
-                    return;
-                }
-                document.getElementById('search-status').textContent = `Searching within ${searchRadius}m radius...`;
-                drawSearchCircle(fromLocation[1], fromLocation[0], searchRadius);
-
-                const nearbyAssets = [];
-                allAssetFeatures.forEach(feature => {
-                    const assetCoords = ol.proj.toLonLat(feature.getGeometry().getCoordinates());
-                    const distance = calculateDistance(fromLocation, [assetCoords[1], assetCoords[0]]);
-                    if (distance <= searchRadius) {
-                        nearbyAssets.push({ feature: feature, distance: distance });
-                    }
-                });
-
-                if (nearbyAssets.length > 0) {
-                    nearestFound = true;
-                    stopBlinking();
-                    nearbyAssets.sort((a, b) => a.distance - b.distance);
-                    displayNearestAssets(nearbyAssets);
-                    const nearestDistance = Math.round(nearbyAssets[0].distance);
-                    if (nearestDistance >= 500 && nearestDistance <= 1000) {
-                        document.getElementById('search-status').textContent = `Nearest item found within 500-1000m range (${nearestDistance}m).`;
-                    } else if (nearestDistance < 500 && nearestDistance > 100) {
-                        document.getElementById('search-status').textContent = `Nearest item found within 100-${nearestDistance}m range (${nearestDistance}m).`;
-                    } else if (nearestDistance <= 100 && nearestDistance >= 0) {
-                        document.getElementById('search-status').textContent = `Nearest item found within ${nearestDistance}m.`;
-                    } else {
-                        document.getElementById('search-status').textContent = `Nearest item found within ${nearestDistance}m.`;
-                    }
-                } else {
-                    searchRadius += step;
-                    setTimeout(searchNextRadius, 1000);
-                }
+            
+            const assetCoords = ol.proj.toLonLat(feature.getGeometry().getCoordinates());
+            const distance = calculateDistance(fromLocation, [assetCoords[1], assetCoords[0]]);
+            if (distance <= searchRadius) {
+                nearbyAssets.push({ feature: feature, distance: distance });
+                alreadyDisplayedAssets.add(feature.get('id')); // Mark as displayed
             }
-
-            searchNextRadius();
         });
+
+        if (nearbyAssets.length > 0) {
+            nearestFound = true;
+            stopBlinking();
+            nearbyAssets.sort((a, b) => a.distance - b.distance);
+            displayNearestAssets(nearbyAssets);
+            const nearestDistance = Math.round(nearbyAssets[0].distance);
+            
+            if (nearestDistance >= 500 && nearestDistance <= 1000) {
+                document.getElementById('search-status').textContent = `Nearest item found within 500-1000m range (${nearestDistance}m).`;
+            } else if (nearestDistance < 500 && nearestDistance > 100) {
+                document.getElementById('search-status').textContent = `Nearest item found within 100-${nearestDistance}m range (${nearestDistance}m).`;
+            } else if (nearestDistance <= 100 && nearestDistance >= 0) {
+                document.getElementById('search-status').textContent = `Nearest item found within ${nearestDistance}m.`;
+            } else {
+                document.getElementById('search-status').textContent = `Nearest item found within ${nearestDistance}m.`;
+            }
+        } else {
+            searchRadius += step;
+            setTimeout(searchNextRadius, 1000);
+        }
+    }
+
+    searchNextRadius();
+});
 
         document.getElementById('clear-all').addEventListener('click', function() {
             assetSource.clear();
