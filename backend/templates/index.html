@@ -5,40 +5,210 @@
     <title>Asset Tracker</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v7.3.0/ol.css">
     <style>
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; font-family: Arial; }
-        #map-container { position: absolute; top: 0; bottom: 0; width: 100%; }
-        #map { width: 100%; height: 100%; }
+        /* General Styles */
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+        }
+
+        /* Map Container */
+        #map-container {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 100%;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Sidebar */
         #sidebar {
-            position: absolute; top: 10px; left: 10px; z-index: 1000;
-            background: rgba(255,255,255,0.9); padding: 15px; border-radius: 5px; width: 300px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.2);
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 1000;
+            background: #ffffff;
+            padding: 15px;
+            border-radius: 8px;
+            width: 320px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
         }
-        #sidebar h4 { margin-bottom: 5px; }
-        #sidebar button { margin-top: 10px; padding: 8px; width: 100%; cursor: pointer; }
+
+        #sidebar h4 {
+            margin-bottom: 10px;
+            font-size: 1.1em;
+            color: #333;
+        }
+
+        #sidebar button {
+            margin-top: 10px;
+            padding: 10px;
+            width: 100%;
+            border: none;
+            border-radius: 5px;
+            background-color: #007bff;
+            color: white;
+            font-size: 1em;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        #sidebar button:hover {
+            background-color: #0056b3;
+        }
+
         .coordinates {
-            font-family: monospace; font-size: 0.9em; margin: 5px 0;
-            padding: 5px; background: #f5f5f5; border-radius: 3px;
-        }
-        .map-title {
-            position: absolute; top: 10px; left: 330px; z-index: 1000;
-            background: rgba(255,255,255,0.9); padding: 10px 15px; border-radius: 5px;
-            font-size: 1.2em; box-shadow: 0 0 10px rgba(0,0,0,0.2);
-        }
-        #asset-info-container {
-            position: absolute; bottom: 10px; left: 10px; z-index: 1000;
-            background: rgba(255,255,255,0.9); padding: 10px; border-radius: 5px;
-            max-height: 200px; overflow-y: auto; width: 300px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.2);
-        }
-        .asset-widget {
-            border: 1px solid #ccc;
-            padding: 8px;
-            margin-bottom: 5px;
+            font-family: monospace;
+            font-size: 0.9em;
+            margin: 5px 0;
+            padding: 5px;
+            background: #f9f9f9;
             border-radius: 3px;
+            border: 1px solid #ddd;
+        }
+
+        #search-status {
+            margin-top: 10px;
+            font-style: italic;
+            color: #555;
+        }
+
+        /* Map Title */
+        .map-title {
+            position: absolute;
+            top: 10px;
+            left: 350px;
+            z-index: 1000;
+            background: #ffffff;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #333;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        /* Asset Info Container */
+        #asset-info-container {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            z-index: 1000;
+            background: #ffffff;
+            padding: 15px;
+            border-radius: 8px;
+            max-height: 250px;
+            overflow-y: auto;
+            width: 320px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .asset-widget {
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            background: #f9f9f9;
             font-size: 0.9em;
         }
+
         .asset-widget strong {
             font-size: 1.1em;
+            color: #333;
+        }
+
+        .asset-widget button {
+            margin-top: 10px;
+            padding: 8px;
+            width: 100%;
+            border: none;
+            border-radius: 5px;
+            background-color: #28a745;
+            color: white;
+            font-size: 0.9em;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        .asset-widget button:hover {
+            background-color: #218838;
+        }
+
+        /* Booking Popup */
+        #booking-popup {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #ffffff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+            width: 400px;
+        }
+
+        #booking-popup h3 {
+            margin-bottom: 15px;
+            font-size: 1.3em;
+            color: #333;
+        }
+
+        #booking-popup form div {
+            margin-bottom: 15px;
+        }
+
+        #booking-popup label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 0.9em;
+            color: #555;
+        }
+
+        #booking-popup input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 1em;
+        }
+
+        #booking-popup button {
+            margin-top: 10px;
+            padding: 10px;
+            width: 48%;
+            border: none;
+            border-radius: 5px;
+            font-size: 1em;
+            cursor: pointer;
+        }
+
+        #booking-popup button[type="submit"] {
+            background-color: #007bff;
+            color: white;
+            transition: background-color 0.3s ease;
+        }
+
+        #booking-popup button[type="submit"]:hover {
+            background-color: #0056b3;
+        }
+
+        #booking-popup button[type="button"] {
+            background-color: #dc3545;
+            color: white;
+            transition: background-color 0.3s ease;
+        }
+
+        #booking-popup button[type="button"]:hover {
+            background-color: #c82333;
         }
     </style>
 </head>
@@ -56,7 +226,7 @@
 
         <button id="search-assets">Find Nearest Assets</button>
         <button id="clear-all">Clear All</button>
-        <div id="search-status" style="margin-top: 10px; font-style: italic;"></div>
+        <div id="search-status"></div>
     </div>
 
     <div id="map-container">
@@ -66,6 +236,27 @@
     <div id="asset-info-container">
         <h4>Nearby Assets</h4>
         <div id="assets-list"></div>
+    </div>
+
+    <div id="booking-popup">
+        <h3>Book Asset</h3>
+        <form id="booking-form">
+            <input type="hidden" id="booking-asset-id">
+            <div>
+                <label for="booking-name">Name:</label>
+                <input type="text" id="booking-name" required>
+            </div>
+            <div>
+                <label for="booking-phone">Phone:</label>
+                <input type="text" id="booking-phone" required>
+            </div>
+            <div>
+                <label for="booking-duration">Duration (hours):</label>
+                <input type="number" id="booking-duration" value="1" min="1" required>
+            </div>
+            <button type="submit">Submit</button>
+            <button type="button" onclick="closeBookingPopup()">Cancel</button>
+        </form>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/ol@v7.3.0/dist/ol.js"></script>
@@ -78,7 +269,7 @@
         let assetLayer = null;
         let searchCircleLayer = null;
         let blinkInterval = null;
-        let allAssetFeatures = []; // store all assets here
+        let allAssetFeatures = [];
 
         const map = new ol.Map({
             target: 'map',
@@ -119,36 +310,35 @@
         map.addLayer(assetLayer);
 
         function loadAllAssets() {
-        fetch('/api/assets/all')
-            .then(response => {
-                if (!response.ok) throw new Error('Failed to fetch assets.');
-                return response.json();
-            })
-            .then(data => {
-                const addedAssetIds = new Set(); // prevent duplicates
-                data.assets.forEach(asset => {
-                    const assetId = asset.properties.id;
-                    if (addedAssetIds.has(assetId)) return; // skip duplicates
-                    addedAssetIds.add(assetId);
+            fetch('/api/assets/all')
+                .then(response => {
+                    if (!response.ok) throw new Error('Failed to fetch assets.');
+                    return response.json();
+                })
+                .then(data => {
+                    const addedAssetIds = new Set();
+                    data.assets.forEach(asset => {
+                        const assetId = asset.properties.id;
+                        if (addedAssetIds.has(assetId)) return;
+                        addedAssetIds.add(assetId);
 
-                    const coords = ol.proj.fromLonLat(asset.geometry.coordinates);
-                    const feature = new ol.Feature({
-                        geometry: new ol.geom.Point(coords),
-                        name: asset.properties.name,
-                        asset_type: asset.properties.asset_type,
-                        last_seen: asset.properties.last_seen,
-                        id: assetId,
-                        coordinates: asset.geometry.coordinates
+                        const coords = ol.proj.fromLonLat(asset.geometry.coordinates);
+                        const feature = new ol.Feature({
+                            geometry: new ol.geom.Point(coords),
+                            name: asset.properties.name,
+                            asset_type: asset.properties.asset_type,
+                            last_seen: asset.properties.last_seen,
+                            id: assetId,
+                            coordinates: asset.geometry.coordinates
+                        });
+                        assetSource.addFeature(feature);
+                        allAssetFeatures.push(feature);
                     });
-                    assetSource.addFeature(feature);
-                    allAssetFeatures.push(feature);
+                })
+                .catch(error => {
+                    console.error('Error loading assets:', error);
                 });
-            })
-            .catch(error => {
-                console.error('Error loading assets:', error);
-            });
-    }
-
+        }
 
         function addMarker(lon, lat, color, id) {
             const marker = new ol.Feature({
@@ -257,8 +447,8 @@
         }
 
         function calculateDistance(coord1, coord2) {
-            const R = 6371e3; // metres
-            const lat1 = coord1[0] * Math.PI / 180; // φ, λ in radians
+            const R = 6371e3;
+            const lat1 = coord1[0] * Math.PI / 180;
             const lat2 = coord2[0] * Math.PI / 180;
             const lon1 = coord1[1] * Math.PI / 180;
             const lon2 = coord2[1] * Math.PI / 180;
@@ -271,109 +461,153 @@
                       Math.sin(deltaLon/2) * Math.sin(deltaLon/2);
             const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 
-            return R * c; // in metres
+            return R * c;
         }
 
         function displayNearestAssets(nearestAssets) {
-            const assetsList = document.getElementById('assets-list');
-            assetsList.innerHTML = '';
-            const displayedAssetIds = new Set();
+        const assetsList = document.getElementById('assets-list');
+        assetsList.innerHTML = '';
+        const displayedAssetIds = new Set();
 
-            if (nearestAssets.length === 0) {
-                assetsList.innerHTML = '<p>No assets found in this area</p>';
-                return;
-            }
-
-            nearestAssets.forEach(asset => {
-                const assetId = asset.feature.get('id');
-                if (!displayedAssetIds.has(assetId)) {
-                    displayedAssetIds.add(assetId);
-                    const div = document.createElement('div');
-                    div.className = 'asset-widget';
-                    const assetCoords = asset.feature.get('coordinates');
-                    div.innerHTML = `
-                        <strong>${asset.feature.get('name')}</strong><br>
-                        Coordinates: ${assetCoords[1].toFixed(6)}, ${assetCoords[0].toFixed(6)}<br>
-                        Distance: ${Math.round(asset.distance)}m
-                    `;
-                    assetsList.appendChild(div);
-                }
-            });
-        }
-
-        document.getElementById('search-assets').addEventListener('click', function() {
-    if (!fromLocation) {
-        alert('Please select a FROM location first.');
-        return;
-    }
-    
-    // Clear previous results but keep the assets
-    document.getElementById('assets-list').innerHTML = '';
-    document.getElementById('search-status').textContent = '';
-    
-    if (fromMarker) assetSource.addFeature(fromMarker);
-    if (toMarker) assetSource.addFeature(toMarker);
-    if (toLocation) drawRoute(fromLocation, toLocation);
-    
-    let searchRadius = 500;
-    const maxRadius = 5000;
-    const step = 500;
-    let nearestFound = false;
-    const alreadyDisplayedAssets = new Set(); // Track displayed assets
-
-    function searchNextRadius() {
-        if (nearestFound) {
-            stopBlinking();
+        if (nearestAssets.length === 0) {
+            assetsList.innerHTML = '<p>No assets found in this area</p>';
             return;
         }
-        if (searchRadius > maxRadius) {
-            document.getElementById('search-status').textContent = 'No assets found within 5km radius.';
-            stopBlinking();
-            return;
-        }
-        
-        document.getElementById('search-status').textContent = `Searching within ${searchRadius}m radius...`;
-        drawSearchCircle(fromLocation[1], fromLocation[0], searchRadius);
 
-        const nearbyAssets = [];
-        allAssetFeatures.forEach(feature => {
-            // Skip if already displayed
-            if (alreadyDisplayedAssets.has(feature.get('id'))) {
-                return;
-            }
-            
-            const assetCoords = ol.proj.toLonLat(feature.getGeometry().getCoordinates());
-            const distance = calculateDistance(fromLocation, [assetCoords[1], assetCoords[0]]);
-            if (distance <= searchRadius) {
-                nearbyAssets.push({ feature: feature, distance: distance });
-                alreadyDisplayedAssets.add(feature.get('id')); // Mark as displayed
+        nearestAssets.forEach(asset => {
+            const assetId = asset.feature.get('id');
+            if (!displayedAssetIds.has(assetId)) {
+                displayedAssetIds.add(assetId);
+                const div = document.createElement('div');
+                div.className = 'asset-widget';
+                const assetCoords = asset.feature.get('coordinates');
+                div.innerHTML = `
+                    <strong>${asset.feature.get('name')}</strong><br>
+                    Type: ${asset.feature.get('asset_type')}<br>
+                    Coordinates: ${assetCoords[1].toFixed(6)}, ${assetCoords[0].toFixed(6)}<br>
+                    Distance: ${Math.round(asset.distance)}m<br>
+                    <button onclick="openBookingPopup('${assetId}')">Book Hire</button>
+                `;
+                assetsList.appendChild(div);
             }
         });
-
-        if (nearbyAssets.length > 0) {
-            nearestFound = true;
-            stopBlinking();
-            nearbyAssets.sort((a, b) => a.distance - b.distance);
-            displayNearestAssets(nearbyAssets);
-            const nearestDistance = Math.round(nearbyAssets[0].distance);
-            
-            if (nearestDistance >= 500 && nearestDistance <= 1000) {
-                document.getElementById('search-status').textContent = `Nearest item found within 500-1000m range (${nearestDistance}m).`;
-            } else if (nearestDistance < 500 && nearestDistance > 100) {
-                document.getElementById('search-status').textContent = `Nearest item found within 100-${nearestDistance}m range (${nearestDistance}m).`;
-            } else if (nearestDistance <= 100 && nearestDistance >= 0) {
-                document.getElementById('search-status').textContent = `Nearest item found within ${nearestDistance}m.`;
-            } else {
-                document.getElementById('search-status').textContent = `Nearest item found within ${nearestDistance}m.`;
-            }
-        } else {
-            searchRadius += step;
-            setTimeout(searchNextRadius, 1000);
-        }
     }
 
-    searchNextRadius();
-});
+    function openBookingPopup(assetId) {
+        document.getElementById('booking-asset-id').value = assetId;
+        document.getElementById('booking-popup').style.display = 'block';
+    }
+
+    function closeBookingPopup() {
+        document.getElementById('booking-popup').style.display = 'none';
+    }
+
+    document.getElementById('booking-form').addEventListener('submit', function (event) {
+        event.preventDefault();
+
+        const assetId = document.getElementById('booking-asset-id').value;
+        const name = document.getElementById('booking-name').value;
+        const phone = document.getElementById('booking-phone').value;
+        const duration = document.getElementById('booking-duration').value;
+
+        fetch('/booking/book', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                asset_id: assetId,
+                user_name: name,
+                phone: phone,
+                duration_hours: parseInt(duration),
+            }),
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Booking successful!');
+                    closeBookingPopup();
+                } else {
+                    alert(`Booking failed: ${data.error}`);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Failed to book asset. Please try again.');
+            });
+    });
+
+        document.getElementById('search-assets').addEventListener('click', function() {
+            if (!fromLocation) {
+                alert('Please select a FROM location first.');
+                return;
+            }
+            
+            document.getElementById('assets-list').innerHTML = '';
+            document.getElementById('search-status').textContent = '';
+            
+            if (fromMarker) assetSource.addFeature(fromMarker);
+            if (toMarker) assetSource.addFeature(toMarker);
+            if (toLocation) drawRoute(fromLocation, toLocation);
+            
+            let searchRadius = 500;
+            const maxRadius = 5000;
+            const step = 500;
+            let nearestFound = false;
+            const alreadyDisplayedAssets = new Set();
+
+            function searchNextRadius() {
+                if (nearestFound) {
+                    stopBlinking();
+                    return;
+                }
+                if (searchRadius > maxRadius) {
+                    document.getElementById('search-status').textContent = 'No assets found within 5km radius.';
+                    stopBlinking();
+                    return;
+                }
+                
+                document.getElementById('search-status').textContent = `Searching within ${searchRadius}m radius...`;
+                drawSearchCircle(fromLocation[1], fromLocation[0], searchRadius);
+
+                const nearbyAssets = [];
+                allAssetFeatures.forEach(feature => {
+                    if (alreadyDisplayedAssets.has(feature.get('id'))) {
+                        return;
+                    }
+                    
+                    const assetCoords = ol.proj.toLonLat(feature.getGeometry().getCoordinates());
+                    const distance = calculateDistance(fromLocation, [assetCoords[1], assetCoords[0]]);
+                    if (distance <= searchRadius) {
+                        nearbyAssets.push({ feature: feature, distance: distance });
+                        alreadyDisplayedAssets.add(feature.get('id'));
+                    }
+                });
+
+                if (nearbyAssets.length > 0) {
+                    nearestFound = true;
+                    stopBlinking();
+                    nearbyAssets.sort((a, b) => a.distance - b.distance);
+                    displayNearestAssets(nearbyAssets);
+                    const nearestDistance = Math.round(nearbyAssets[0].distance);
+                    
+                    if (nearestDistance >= 500 && nearestDistance <= 1000) {
+                        document.getElementById('search-status').textContent = `Nearest item found within 500-1000m range (${nearestDistance}m).`;
+                    } else if (nearestDistance < 500 && nearestDistance > 100) {
+                        document.getElementById('search-status').textContent = `Nearest item found within 100-${nearestDistance}m range (${nearestDistance}m).`;
+                    } else if (nearestDistance <= 100 && nearestDistance >= 0) {
+                        document.getElementById('search-status').textContent = `Nearest item found within ${nearestDistance}m.`;
+                    } else {
+                        document.getElementById('search-status').textContent = `Nearest item found within ${nearestDistance}m.`;
+                    }
+                } else {
+                    searchRadius += step;
+                    setTimeout(searchNextRadius, 1000);
+                }
+            }
+
+            searchNextRadius();
+        });
 
         document.getElementById('clear-all').addEventListener('click', function() {
             assetSource.clear();
@@ -389,10 +623,164 @@
             if (routeLayer) map.removeLayer(routeLayer);
             if (searchCircleLayer) map.removeLayer(searchCircleLayer);
             stopBlinking();
-            loadAllAssets(); // Reload assets after clear
+            loadAllAssets();
         });
 
-        loadAllAssets(); // <<< important: load all assets at start
-    </script>
+        loadAllAssets();
+    
+    
+        document.getElementById('booking-form').addEventListener('submit', function (event) {
+            event.preventDefault();
+
+            const assetId = document.getElementById('booking-asset-id').value;
+            const name = document.getElementById('booking-name').value;
+            const phone = document.getElementById('booking-phone').value;
+            const duration = document.getElementById('booking-duration').value;
+
+            fetch('/booking/book', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    asset_id: assetId,
+                    user_name: name,
+                    phone: phone,
+                    duration_hours: parseInt(duration),
+                }),
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('Booking successful!');
+                        closeBookingPopup();
+                        showBookingDetails(assetId, data.booking_id, data.end_time);
+                    } else {
+                        alert(`Booking failed: ${data.error}`);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Failed to book asset. Please try again.');
+                });
+        });
+
+
+
+        
+        function showBookingDetails(assetId, bookingId, endTime) {
+        // Hide the search circle
+        if (searchCircleLayer) {
+            map.removeLayer(searchCircleLayer);
+            searchCircleLayer = null;
+        }
+
+        // Clear all other assets
+        assetSource.clear();
+
+        // Fetch booked asset details from the backend
+        fetch(`/api/bookings/${bookingId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    alert(`Error: ${data.error}`);
+                    return;
+                }
+
+                const asset = data.asset;
+                const assetCoords = asset.coordinates;
+
+                // Fetch booked asset details from the backend
+                fetch(`/api/bookings/${bookingId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.error) {
+                            alert(`Error: ${data.error}`);
+                            return;
+                        }
+
+                        const asset = data.asset;
+                        const assetCoords = asset.coordinates;
+
+                        // Highlight the booked asset with an image marker
+                        const bookedAssetMarker = new ol.Feature({
+                            geometry: new ol.geom.Point(ol.proj.fromLonLat([assetCoords[0], assetCoords[1]])),
+                        });
+                        bookedAssetMarker.setStyle(new ol.style.Style({
+                            image: new ol.style.Icon({
+                                src: 'static/images/car-icon.png', 
+                                scale: 0.1, 
+                            }),
+                            text: new ol.style.Text({
+                                text: asset.name,
+                                offsetY: -25, 
+                                font: '12px Arial',
+                                fill: new ol.style.Fill({ color: '#000' }),
+                                stroke: new ol.style.Stroke({ color: '#fff', width: 3 }),
+                            }),
+                        }));
+                        assetSource.addFeature(bookedAssetMarker);
+                    })
+                    .catch(error => {
+                        console.error('Error fetching booking details:', error);
+                        alert('Failed to fetch booking details. Please try again.');
+                    });
+
+                // Add start and end point icons
+        if (fromLocation) {
+            const startIcon = new ol.style.Icon({
+                src: 'https://cdn-icons-png.flaticon.com/512/684/684908.png', // Start point icon URL
+                scale: 0.05,
+            });
+            const startMarker = new ol.Feature({
+                geometry: new ol.geom.Point(ol.proj.fromLonLat([fromLocation[1], fromLocation[0]])),
+            });
+            startMarker.setStyle(
+                new ol.style.Style({
+                    image: startIcon,
+                })
+            );
+            assetSource.addFeature(startMarker);
+        }
+
+        if (toLocation) {
+            const endIcon = new ol.style.Icon({
+                src: 'https://cdn-icons-png.flaticon.com/512/684/684908.png', // End point icon URL
+                scale: 0.05,
+            });
+            const endMarker = new ol.Feature({
+                geometry: new ol.geom.Point(ol.proj.fromLonLat([toLocation[1], toLocation[0]])),
+            });
+            endMarker.setStyle(
+                new ol.style.Style({
+                    image: endIcon,
+                })
+            );
+            assetSource.addFeature(endMarker);
+        }
+        // Display booking details
+                const bookingDetails = `
+                    <h4>Booking Details</h4>
+                    <p><strong>Booking ID:</strong> ${data.booking_id}</p>
+                    <p><strong>Asset Name:</strong> ${asset.name}</p>
+                    <p><strong>Asset Type:</strong> ${asset.type}</p>
+                    <p><strong>Asset Coordinates:</strong> Lat: ${assetCoords[1].toFixed(6)}, Lon: ${assetCoords[0].toFixed(6)}</p>
+                    <p><strong>Start Point:</strong> Lat: ${fromLocation[0].toFixed(6)}, Lon: ${fromLocation[1].toFixed(6)}</p>
+                    <p><strong>End Point:</strong> Lat: ${toLocation[0].toFixed(6)}, Lon: ${toLocation[1].toFixed(6)}</p>
+                    <p><strong>End Time:</strong> ${endTime}</p>
+                `;
+                document.getElementById('assets-list').innerHTML = bookingDetails;
+
+                // Draw the route between start and end points if available
+                if (fromLocation && toLocation) {
+                    drawRoute(fromLocation, toLocation);
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching booking details:', error);
+                alert('Failed to fetch booking details. Please try again.');
+            });
+}
+</script>
 </body>
 </html>
